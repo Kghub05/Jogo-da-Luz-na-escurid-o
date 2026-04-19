@@ -1,0 +1,573 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Luz na Escuridão: Som e Essência</title>
+    <style>
+        :root {
+            --ui-blue: #00d2ff;
+            --ui-yellow: #ffcc00;
+            --ui-pink: #ff3366;
+            --ui-green: #00ff88;
+            --ui-bg: rgba(0, 5, 15, 0.9);
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #000;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: white; user-select: none; touch-action: none;
+        }
+        canvas { display: block; filter: contrast(1.1); }
+        
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+        }
+
+        .hud-element {
+            position: absolute; padding: 10px 18px;
+            background: var(--ui-bg); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; backdrop-filter: blur(10px);
+            font-weight: bold; transition: transform 0.2s;
+        }
+
+        #level-info { top: 20px; left: 20px; border-left: 5px solid var(--ui-blue); }
+        #currency-info { top: 20px; right: 20px; color: var(--ui-yellow); font-size: 1.2rem; display: flex; align-items: center; gap: 5px; }
+        #mission-info { top: 95px; left: 20px; font-size: 0.85rem; max-width: 180px; border-left: 5px solid var(--ui-yellow); }
+        
+        #energy-container {
+            position: absolute; bottom: 35px; left: 50%;
+            transform: translateX(-50%); width: 65%; max-width: 350px;
+            height: 12px; background: rgba(255,255,255,0.05);
+            border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); overflow: hidden;
+        }
+        #energy-bar { height: 100%; width: 100%; background: var(--ui-blue); transition: width 0.15s ease-out; box-shadow: 0 0 15px var(--ui-blue); }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; background: radial-gradient(circle, rgba(0,20,40,0.95) 0%, rgba(0,0,0,1) 100%);
+            pointer-events: auto; z-index: 100; text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 { font-size: 2.2rem; margin-bottom: 0.5rem; letter-spacing: 4px; color: var(--ui-blue); }
+
+        .btn {
+            padding: 14px 45px; border-radius: 50px; border: none;
+            background: white; color: black; font-weight: 900;
+            cursor: pointer; font-size: 1.1rem; transition: 0.3s; margin: 12px;
+            text-transform: uppercase;
+        }
+        .btn:active { transform: scale(0.92); }
+
+        #shop-container {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            width: 90%; max-width: 400px; margin: 25px 0;
+        }
+        .shop-item {
+            background: rgba(255,255,255,0.05); padding: 15px;
+            border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .upgrade-btn {
+            font-size: 0.85rem; padding: 10px; width: 100%; background: var(--ui-yellow);
+            color: black; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+        }
+        .upgrade-btn:disabled { background: #333; color: #666; }
+        
+        #joystick-area {
+            position: absolute; bottom: 50px; left: 50px;
+            width: 100px; height: 100px; pointer-events: none; opacity: 0.15;
+        }
+        #joystick-base { width: 100%; height: 100%; border-radius: 50%; border: 3px solid white; }
+        #joystick-knob {
+            position: absolute; top: 50%; left: 50%;
+            width: 30px; height: 30px; margin: -15px 0 0 -15px;
+            background: white; border-radius: 50%;
+        }
+
+        #event-msg {
+            position: absolute; top: 35%; width: 100%; text-align: center;
+            font-size: 2rem; font-weight: 900; color: var(--ui-pink);
+            pointer-events: none; opacity: 0; transition: 0.3s; 
+            z-index: 50; text-shadow: 0 0 20px black;
+        }
+
+        #damage-flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--ui-pink); opacity: 0; pointer-events: none; z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="damage-flash"></div>
+
+    <div id="ui-layer">
+        <div id="level-info" class="hud-element">
+            <div id="level-display" style="font-size: 0.6rem; opacity: 0.6;">AMBIENTE</div>
+            <div id="level-name">Vazio Primal</div>
+        </div>
+        <div id="currency-info" class="hud-element">
+            <span>✧</span><span id="coins-val">0</span>
+        </div>
+        <div id="mission-info" class="hud-element">
+            <div style="font-size: 0.6rem; opacity: 0.6; margin-bottom: 4px;">MISSÃO ATUAL</div>
+            <span id="mission-text">---</span>
+        </div>
+        <div id="energy-container">
+            <div id="energy-bar"></div>
+        </div>
+    </div>
+
+    <div id="event-msg">ONDA DE CAOS!</div>
+
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="joystick-area">
+        <div id="joystick-base"></div>
+        <div id="joystick-knob"></div>
+    </div>
+
+    <div id="menu" class="overlay">
+        <h1>LUZ NA ESCURIDÃO</h1>
+        <div id="shop-container">
+            <div class="shop-item">
+                <div style="font-size: 0.6rem; margin-bottom: 5px;">RAIO DE LUZ</div>
+                <button class="upgrade-btn" id="btn-light" onclick="buyUpgrade('light')">✧<span id="cost-light">50</span></button>
+            </div>
+            <div class="shop-item">
+                <div style="font-size: 0.6rem; margin-bottom: 5px;">IMPULSO</div>
+                <button class="upgrade-btn" id="btn-speed" onclick="buyUpgrade('speed')">✧<span id="cost-speed">50</span></button>
+            </div>
+            <div class="shop-item">
+                <div style="font-size: 0.6rem; margin-bottom: 5px;">ESSÊNCIA</div>
+                <button class="upgrade-btn" id="btn-tank" onclick="buyUpgrade('tank')">✧<span id="cost-tank">50</span></button>
+            </div>
+            <div class="shop-item">
+                <div style="font-size: 0.6rem; margin-bottom: 5px;">MAGNETO</div>
+                <button class="upgrade-btn" id="btn-magnet" onclick="buyUpgrade('magnet')">✧<span id="cost-magnet">50</span></button>
+            </div>
+        </div>
+        <button class="btn" onclick="initGame()">INICIAR CICLO</button>
+    </div>
+
+    <div id="game-over" class="overlay hidden">
+        <h1 style="color: var(--ui-pink);">LUZ EXTINGUIDA</h1>
+        <p id="final-stats" style="margin-bottom: 25px; opacity: 0.8;"></p>
+        <div id="revive-zone">
+            <button class="btn" style="background: var(--ui-yellow);" onclick="tryRevive()">RESTAURAR LUZ</button>
+        </div>
+        <button class="btn" style="background: transparent; color: white; border: 1px solid white;" onclick="closeGameOver()">MENU</button>
+    </div>
+
+    <script>
+        // --- SISTEMA DE ÁUDIO SINTÉTICO ---
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            play(type) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                const now = this.ctx.currentTime;
+
+                switch(type) {
+                    case 'collect':
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(440, now);
+                        osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                        gain.gain.setValueAtTime(0.1, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                        osc.start(); osc.stop(now + 0.1);
+                        break;
+                    case 'damage':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(150, now);
+                        osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                        osc.start(); osc.stop(now + 0.2);
+                        break;
+                    case 'level':
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(330, now);
+                        osc.frequency.exponentialRampToValueAtTime(660, now + 0.3);
+                        gain.gain.setValueAtTime(0.1, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                        osc.start(); osc.stop(now + 0.3);
+                        break;
+                    case 'chaos':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(60, now);
+                        osc.frequency.linearRampToValueAtTime(120, now + 0.5);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                        osc.start(); osc.stop(now + 0.5);
+                        break;
+                }
+            }
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const damageFlash = document.getElementById('damage-flash');
+        
+        const levelNameDisplay = document.getElementById('level-name');
+        const coinsDisplay = document.getElementById('coins-val');
+        const missionText = document.getElementById('mission-text');
+        const energyBar = document.getElementById('energy-bar');
+        const eventMsg = document.getElementById('event-msg');
+
+        const BIOMES = [
+            { name: "Vazio Primal", color: "#00d2ff", bg: "#00050a", enemySpeed: 1.4, spawnRate: 0.015, drain: 0.08 },
+            { name: "Nebulosa Carmesim", color: "#ff3366", bg: "#0a0002", enemySpeed: 2.1, spawnRate: 0.026, drain: 0.12 },
+            { name: "Núcleo Estelar", color: "#ffcc00", bg: "#0b0a00", enemySpeed: 3.2, spawnRate: 0.045, drain: 0.18 },
+            { name: "Abismo Quântico", color: "#ffffff", bg: "#050505", enemySpeed: 4.5, spawnRate: 0.070, drain: 0.25 }
+        ];
+
+        let save = JSON.parse(localStorage.getItem('luz_pro_v4')) || {
+            coins: 0,
+            upgrades: { light: 0, speed: 0, tank: 0, magnet: 0 }
+        };
+
+        let state = {
+            active: false,
+            revives: 0,
+            score: 0,
+            coinsCollected: 0,
+            level: 0,
+            energy: 100,
+            eventTimer: 0,
+            chaosMode: false,
+            shake: 0,
+            mission: { type: 'time', goal: 30, current: 0 },
+            player: { x: 0, y: 0, r: 15, light: 200, speed: 4.5, magnet: 110, trail: [] },
+            camera: { x: 0, y: 0 },
+            enemies: [],
+            pickups: [],
+            particles: [],
+            stars: [],
+            joy: { active: false, originX: 0, originY: 0, angle: 0, dist: 0 }
+        };
+
+        function saveGame() {
+            localStorage.setItem('luz_pro_v4', JSON.stringify(save));
+            updateShopUI();
+        }
+
+        function updateShopUI() {
+            coinsDisplay.innerText = save.coins;
+            ['light', 'speed', 'tank', 'magnet'].forEach(type => {
+                const cost = (save.upgrades[type] + 1) * 50;
+                const costEl = document.getElementById('cost-' + type);
+                if(costEl) costEl.innerText = cost;
+                const btn = document.getElementById('btn-' + type);
+                if(btn) btn.disabled = save.coins < cost;
+            });
+        }
+
+        function buyUpgrade(type) {
+            AudioEngine.init();
+            let cost = (save.upgrades[type] + 1) * 50;
+            if(save.coins >= cost) {
+                save.coins -= cost;
+                save.upgrades[type]++;
+                saveGame();
+                AudioEngine.play('level');
+                state.shake = 10;
+            }
+        }
+
+        function generateStars() {
+            state.stars = [];
+            for(let i=0; i<150; i++) {
+                state.stars.push({
+                    x: Math.random() * 2500 - 1250,
+                    y: Math.random() * 2500 - 1250,
+                    size: Math.random() * 2 + 0.5,
+                    alpha: Math.random() * 0.4 + 0.1
+                });
+            }
+        }
+
+        window.addEventListener('touchstart', e => {
+            AudioEngine.init();
+            if(!state.active) return;
+            const t = e.touches[0];
+            state.joy.active = true;
+            state.joy.originX = t.clientX;
+            state.joy.originY = t.clientY;
+        }, {passive: false});
+
+        window.addEventListener('touchmove', e => {
+            if(!state.joy.active) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            const dx = t.clientX - state.joy.originX;
+            const dy = t.clientY - state.joy.originY;
+            state.joy.dist = Math.min(Math.hypot(dx, dy), 50);
+            state.joy.angle = Math.atan2(dy, dx);
+            document.getElementById('joystick-knob').style.transform = `translate(${Math.cos(state.joy.angle)*state.joy.dist}px, ${Math.sin(state.joy.angle)*state.joy.dist}px)`;
+        }, {passive: false});
+
+        window.addEventListener('touchend', () => {
+            state.joy.active = false;
+            state.joy.dist = 0;
+            document.getElementById('joystick-knob').style.transform = `translate(0,0)`;
+        });
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            generateStars(); 
+        }
+        window.onresize = resize;
+        resize();
+
+        function initGame() {
+            AudioEngine.init();
+            state.active = true;
+            state.revives = 0;
+            state.score = 0;
+            state.coinsCollected = 0;
+            state.level = 0;
+            state.energy = 100;
+            state.player.x = 0; state.player.y = 0;
+            state.camera.x = 0; state.camera.y = 0;
+            state.enemies = []; state.pickups = []; state.particles = [];
+            
+            state.player.light = 200 + (save.upgrades.light * 25);
+            state.player.speed = 4.5 + (save.upgrades.speed * 0.7);
+            state.player.magnet = 110 + (save.upgrades.magnet * 45);
+            
+            newMission();
+            document.getElementById('menu').classList.add('hidden');
+            document.getElementById('game-over').classList.add('hidden');
+            updateUILevels();
+            requestAnimationFrame(loop);
+        }
+
+        function updateUILevels() {
+            levelNameDisplay.innerText = BIOMES[state.level].name;
+            levelNameDisplay.style.color = BIOMES[state.level].color;
+        }
+
+        function newMission() {
+            const types = ['time', 'coins'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            state.mission.type = type;
+            state.mission.current = 0;
+            if(type === 'time') { state.mission.goal = 30 + (state.level * 20); state.mission.label = `Persistir por ${state.mission.goal}s`; }
+            if(type === 'coins') { state.mission.goal = 15 + (state.level * 5); state.mission.label = `Coletar ${state.mission.goal} Essências`; }
+            missionText.innerText = state.mission.label;
+        }
+
+        function completeMission() {
+            save.coins += 50; 
+            saveGame();
+            newMission();
+            AudioEngine.play('level');
+            showEventMsg("+50✧ MISSÃO CONCLUÍDA", "#00ff88");
+        }
+
+        function showEventMsg(txt, color = "#ff3366") {
+            eventMsg.innerText = txt;
+            eventMsg.style.color = color;
+            eventMsg.style.opacity = 1;
+            setTimeout(() => eventMsg.style.opacity = 0, 1500);
+        }
+
+        function tryRevive() {
+            if(state.revives < 1) {
+                state.revives++;
+                state.energy = 100;
+                state.enemies = []; 
+                state.active = true;
+                document.getElementById('game-over').classList.add('hidden');
+                requestAnimationFrame(loop);
+                AudioEngine.play('level');
+            }
+        }
+
+        function closeGameOver() {
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('menu').classList.remove('hidden');
+            updateShopUI();
+        }
+
+        function update() {
+            if(!state.active) return;
+            const biome = BIOMES[state.level];
+
+            const newLevel = Math.min(Math.floor(state.score / 15000), BIOMES.length - 1);
+            if(newLevel > state.level) {
+                state.level = newLevel;
+                updateUILevels();
+                AudioEngine.play('level');
+                showEventMsg("AMBIENTE ALTERADO", biome.color);
+            }
+
+            state.eventTimer++;
+            if(state.eventTimer > 1500) {
+                state.chaosMode = !state.chaosMode;
+                state.eventTimer = 0;
+                AudioEngine.play('chaos');
+                showEventMsg(state.chaosMode ? "ONDAS DE CAOS" : "FLUXO ESTÁVEL");
+            }
+
+            if(state.joy.active) {
+                state.player.x += Math.cos(state.joy.angle) * (state.joy.dist/50) * state.player.speed;
+                state.player.y += Math.sin(state.joy.angle) * (state.joy.dist/50) * state.player.speed;
+            }
+
+            state.camera.x += (state.player.x - state.camera.x) * 0.15;
+            state.camera.y += (state.player.y - state.camera.y) * 0.15;
+
+            let dRate = biome.drain + (state.chaosMode ? 0.2 : 0) - (save.upgrades.tank * 0.015);
+            state.energy -= Math.max(0.04, dRate);
+            state.score += 1;
+            
+            if(state.mission.type === 'time') {
+                state.mission.current += 1/60;
+                if(state.mission.current >= state.mission.goal) completeMission();
+            }
+
+            energyBar.style.width = state.energy + "%";
+            energyBar.style.backgroundColor = state.energy < 25 ? "#ff3366" : biome.color;
+
+            if(state.energy <= 0) {
+                state.active = false;
+                AudioEngine.play('damage');
+                document.getElementById('game-over').classList.remove('hidden');
+                document.getElementById('final-stats').innerText = `Essências: ${state.coinsCollected} | Score: ${Math.floor(state.score/10)}`;
+                if(state.revives >= 1) document.getElementById('revive-zone').classList.add('hidden');
+            }
+
+            if(Math.random() < biome.spawnRate * (state.chaosMode ? 2.5 : 1)) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 700;
+                let type = 'normal', r = 14, s = biome.enemySpeed;
+                let roll = Math.random();
+                if(roll > 0.85) { type = 'fast'; r = 10; s *= 1.8; }
+                else if(roll > 0.75) { type = 'tank'; r = 28; s *= 0.65; }
+                state.enemies.push({ x: state.player.x + Math.cos(angle)*dist, y: state.player.y + Math.sin(angle)*dist, r, type, speed: s });
+            }
+
+            if(Math.random() < 0.04) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * 400 + 100;
+                state.pickups.push({ x: state.player.x + Math.cos(angle)*dist, y: state.player.y + Math.sin(angle)*dist, type: Math.random() > 0.8 ? 'coin' : 'energy' });
+            }
+
+            state.enemies.forEach((e, i) => {
+                const angle = Math.atan2(state.player.y - e.y, state.player.x - e.x);
+                e.x += Math.cos(angle) * e.speed; e.y += Math.sin(angle) * e.speed;
+                const d = Math.hypot(e.x - state.player.x, e.y - state.player.y);
+                if(d < e.r + state.player.r) {
+                    state.energy -= (e.type === 'tank' ? 25 : 15);
+                    state.enemies.splice(i, 1);
+                    state.shake = 15;
+                    AudioEngine.play('damage');
+                    damageFlash.style.opacity = 0.5;
+                    setTimeout(() => damageFlash.style.opacity = 0, 100);
+                }
+                if(d > 1200) state.enemies.splice(i, 1);
+            });
+
+            state.pickups.forEach((p, i) => {
+                const d = Math.hypot(p.x - state.player.x, p.y - state.player.y);
+                if(d < state.player.magnet) {
+                    const angle = Math.atan2(state.player.y - p.y, state.player.x - p.x);
+                    p.x += Math.cos(angle) * 12; p.y += Math.sin(angle) * 12;
+                }
+                if(d < 25) {
+                    AudioEngine.play('collect');
+                    if(p.type === 'energy') { state.energy = Math.min(100, state.energy + 15); } 
+                    else {
+                        save.coins += 1; state.coinsCollected++; saveGame();
+                        if(state.mission.type === 'coins') { state.mission.current++; if(state.mission.current >= state.mission.goal) completeMission(); }
+                    }
+                    state.pickups.splice(i, 1);
+                }
+            });
+
+            state.particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+                if(p.life <= 0) state.particles.splice(i, 1);
+            });
+
+            if(state.shake > 0) state.shake *= 0.9;
+        }
+
+        function draw() {
+            const biome = BIOMES[state.level];
+            const camX = state.camera.x - canvas.width/2 + (Math.random() - 0.5) * state.shake;
+            const camY = state.camera.y - canvas.height/2 + (Math.random() - 0.5) * state.shake;
+
+            ctx.fillStyle = biome.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camX, -camY);
+
+            ctx.fillStyle = "rgba(255,255,255,0.2)";
+            state.stars.forEach(s => ctx.fillRect(s.x, s.y, s.size, s.size));
+
+            state.pickups.forEach(p => {
+                ctx.fillStyle = p.type === 'coin' ? '#ffcc00' : '#fff';
+                ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+            });
+
+            state.enemies.forEach(e => {
+                const d = Math.hypot(e.x - state.player.x, e.y - state.player.y);
+                const vis = Math.max(0, 1 - (d / (state.player.light + 50)));
+                ctx.globalAlpha = vis;
+                ctx.strokeStyle = e.type === 'tank' ? '#999' : biome.color;
+                ctx.lineWidth = e.type === 'tank' ? 4 : 2;
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.stroke();
+            });
+            ctx.globalAlpha = 1;
+
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 15; ctx.shadowColor = biome.color;
+            ctx.beginPath(); ctx.arc(state.player.x, state.player.y, state.player.r, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
+
+            const lg = ctx.createRadialGradient(
+                canvas.width/2 + (state.player.x - state.camera.x), 
+                canvas.height/2 + (state.player.y - state.camera.y), 0,
+                canvas.width/2 + (state.player.x - state.camera.x), 
+                canvas.height/2 + (state.player.y - state.camera.y), state.player.light
+            );
+            lg.addColorStop(0, 'rgba(0,0,0,0)');
+            lg.addColorStop(0.5, 'rgba(0,0,0,0.1)');
+            lg.addColorStop(1, 'rgba(0,0,0,0.95)');
+            ctx.fillStyle = lg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function loop() {
+            update(); draw();
+            if(state.active) requestAnimationFrame(loop);
+        }
+
+        updateShopUI();
+    </script>
+</body>
+</html>
+
+```
